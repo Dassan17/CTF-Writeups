@@ -1,5 +1,5 @@
 # Athena Writeup
-*You can find the CTF on [Tryhackme](https://tryhackme.com/room/4th3n4)
+*You can find the CTF on [Tryhackme](https://tryhackme.com/room/4th3n4)*
 
 ## Requirements
 + Always run your tools inside a virtual machine. Kali Linux (or similar) is a good starting point because it comes preloaded with many security tools, but **any Linux distro** in a VM is fine as long as you install what you need. Try not to use the Hackbox and setup your own env!

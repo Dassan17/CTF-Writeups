@@ -5,16 +5,17 @@ Everything is written by me, so if you find something that is wrong or badly wri
 All the files that you might need are in the same folder as the writeup.
 
 I decided to publish one writeup every week, but if you need help with a specific CTF, feel free to send me a message.  
-In this README I will explain, in my opinion, why, how, and when you should use writeups. I will try not to bother you, but it is important that you read it.
+In this README I will explain, in my opinion, why, how, and when you should use writeups. I will try not to bother you, but you must read it.
 
 ---
 
 ### My journey with CTFs
 
 I started my journey with CTFs during my first year of high school and, like almost everyone, I started without knowing anything about cybersecurity or computer science.  
-I still thought these challenges were way too fun not to try them. Since I didn’t even know where to start, I just searched on Google for solutions and that’s how I discovered the world of writeups.
+These challenges were way too fun not to try. Since I didn’t even know where to start, I just searched on Google for solutions, and that’s how I discovered the world of writeups.
 
 One of the most important lessons I learned from writeups is that **sometimes you should not read writeups.**
+However, they are still important. That's why, since November, I have started taking CTFs seriously and begun writing my own writeups. My goal is to help the community and, in a way, write the guides that would have helped my past self.
 
 ---
 
